@@ -68,6 +68,8 @@
     }
     .spot-btn.selected { background: #fff; color: #000; border-color: #fff; }
     .spot-btn.dim-out { opacity: 0.2; cursor: default; }
+    .spot-btn.wildcard { border-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); width: 100%; max-width: 420px; margin-bottom: 0.3rem; }
+    .spot-btn.wildcard.selected { background: #e81111; border-color: #e81111; color: #fff; }
 
     /* ── WAIT ── */
     .wait-title { font-size: clamp(1.8rem, 8vw, 3rem); font-weight: 900; line-height: 1.1; margin-bottom: 0.8rem; }
@@ -183,6 +185,7 @@ const ALL_SPOTS = [
 ];
 
 const SESSION_SIZE = 20;
+const WILDCARD = 99;
 
 function seededRng(seed) {
   let s = seed;
@@ -282,13 +285,21 @@ window.addEventListener('load', () => {
 /* ── GRID ── */
 function renderGrid() {
   const grid = document.getElementById('sel-grid');
-  grid.innerHTML = SPOTS.map((name, i) =>
+  const wildcard = `<button class="spot-btn wildcard" id="spot-${WILDCARD}" onclick="toggleSpot(${WILDCARD})">なんでもいい</button>`;
+  const spots = SPOTS.map((name, i) =>
     `<button class="spot-btn" id="spot-${i}" onclick="toggleSpot(${i})">${name}</button>`
   ).join('');
+  grid.innerHTML = wildcard + spots;
   updateGrid();
 }
 
 function toggleSpot(i) {
+  if (i === WILDCARD) {
+    myPicks = [WILDCARD];
+    playSelect(); vib(20);
+    doneSelect();
+    return;
+  }
   if (myPicks.includes(i)) {
     myPicks = myPicks.filter(x => x !== i);
     playSelect(); vib(10);
@@ -302,11 +313,12 @@ function toggleSpot(i) {
 
 function updateGrid() {
   const full = myPicks.length >= 3;
-  SPOTS.forEach((_, i) => {
+  [...SPOTS.map((_,i)=>i), WILDCARD].forEach(i => {
     const btn = document.getElementById(`spot-${i}`);
     if (!btn) return;
     const sel = myPicks.includes(i);
-    btn.className = 'spot-btn' + (sel ? ' selected' : (full ? ' dim-out' : ''));
+    const isWild = i === WILDCARD;
+    btn.className = 'spot-btn' + (isWild ? ' wildcard' : '') + (sel ? ' selected' : (full ? ' dim-out' : ''));
   });
   document.getElementById('sel-n').textContent = myPicks.length;
   document.getElementById('btn-done').disabled = myPicks.length < 3;
@@ -330,7 +342,7 @@ function startSelect() {
 }
 
 function doneSelect() {
-  if (myPicks.length < 3) return;
+  if (myPicks.length < 3 && !myPicks.includes(WILDCARD)) return;
   if (isGuest) {
     const gEnc = encPicks(myPicks);
     const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${gEnc}`;
@@ -356,14 +368,27 @@ function shareWaitUrl() {
 }
 
 /* ── RESULT ── */
+function spotName(i) { return i === WILDCARD ? 'なんでもいい' : SPOTS[i]; }
+
 function renderResult(hPicks, gPicks) {
-  const matches = hPicks.filter(i => gPicks.includes(i));
+  const hWild = hPicks.includes(WILDCARD);
+  const gWild = gPicks.includes(WILDCARD);
+  let matches;
+  if (hWild && gWild) {
+    matches = [Math.floor(Math.random() * SPOTS.length)];
+  } else if (hWild) {
+    matches = gPicks.filter(i => i !== WILDCARD).slice(0, 1);
+  } else if (gWild) {
+    matches = hPicks.filter(i => i !== WILDCARD).slice(0, 1);
+  } else {
+    matches = hPicks.filter(i => gPicks.includes(i));
+  }
   const el = document.getElementById('res-inner');
   const ts = stamp();
 
   if (matches.length > 0) {
     playMatch(); vib([50,30,50,30,200]); burst();
-    const matchName = SPOTS[matches[0]];
+    const matchName = spotName(matches[0]);
     el.innerHTML = `
       <div class="res-top pop-in">
         <span class="res-tag match">MATCH</span>
@@ -377,13 +402,13 @@ function renderResult(hPicks, gPicks) {
           <div class="picks-col">
             <p class="picks-label">あなた</p>
             <div class="picks-list">
-              ${hPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${SPOTS[i]}</p>`).join('')}
+              ${hPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
           <div class="picks-col">
             <p class="picks-label">相手</p>
             <div class="picks-list">
-              ${gPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${SPOTS[i]}</p>`).join('')}
+              ${gPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
         </div>
@@ -410,13 +435,13 @@ function renderResult(hPicks, gPicks) {
           <div class="picks-col">
             <p class="picks-label">あなた</p>
             <div class="picks-list">
-              ${hPicks.map(i=>`<p class="pick-item">${SPOTS[i]}</p>`).join('')}
+              ${hPicks.map(i=>`<p class="pick-item">${spotName(i)}</p>`).join('')}
             </div>
           </div>
           <div class="picks-col">
             <p class="picks-label">相手</p>
             <div class="picks-list">
-              ${gPicks.map(i=>`<p class="pick-item">${SPOTS[i]}</p>`).join('')}
+              ${gPicks.map(i=>`<p class="pick-item">${spotName(i)}</p>`).join('')}
             </div>
           </div>
         </div>
