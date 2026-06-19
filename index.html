@@ -156,20 +156,52 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
-const SPOTS = [
-  '渋谷','新宿','浅草','秋葉原','上野',
-  '下北沢','中目黒','表参道','六本木','恵比寿',
-  '池袋','原宿','銀座','お台場','清澄白河',
-  '谷中','吉祥寺','築地','代官山','丸の内',
-  '神楽坂','蔵前','門前仲町','月島','豊洲',
-  '麻布十番','広尾','白金','三軒茶屋','自由が丘',
-  '二子玉川','高円寺','阿佐ヶ谷','中野','荻窪',
-  '国分寺','立川','調布','町田','府中',
-  '神保町','御茶ノ水','水道橋','日本橋','人形町',
-  '新橋','虎ノ門','赤坂','四谷','飯田橋',
-  '巣鴨','日暮里','北千住','錦糸町','両国',
-  '押上','品川','五反田','大井町','蒲田',
+const ALL_SPOTS = [
+  '渋谷','新宿','浅草','秋葉原','上野','下北沢','中目黒','表参道','六本木','恵比寿',
+  '池袋','原宿','銀座','お台場','清澄白河','谷中','吉祥寺','築地','代官山','丸の内',
+  '神楽坂','蔵前','門前仲町','月島','豊洲','麻布十番','広尾','白金','三軒茶屋','自由が丘',
+  '二子玉川','高円寺','阿佐ヶ谷','中野','荻窪','国分寺','立川','調布','町田','府中',
+  '神保町','御茶ノ水','水道橋','日本橋','人形町','新橋','虎ノ門','赤坂','四谷','飯田橋',
+  '巣鴨','日暮里','北千住','錦糸町','両国','押上','品川','五反田','大井町','蒲田',
+  '目黒','学芸大学','祐天寺','武蔵小山','戸越銀座','西大井','大崎','天王洲アイル',
+  '代々木','代々木公園','代々木上原','初台','幡ヶ谷','笹塚','明大前','下北沢','新代田',
+  '世田谷','経堂','千歳烏山','成城学園前','喜多見','豪徳寺','下高井戸','桜新町',
+  '西荻窪','浜田山','永福町','方南町','東高円寺','新高円寺','野方','鷺ノ宮',
+  '東中野','中野坂上','落合','高田馬場','早稲田','江古田','練馬','石神井公園',
+  '大泉学園','成増','赤羽','十条','王子','田端','駒込','目白','大塚','東池袋',
+  '本郷','湯島','根津','千駄木','白山','茗荷谷','後楽園','春日','小石川',
+  '大手町','日比谷','霞ヶ関','永田町','溜池山王','青山一丁目','外苑前','乃木坂',
+  '六本木一丁目','神谷町','芝公園','浜松町','田町','三田','白金台','目黒不動',
+  '木場','東陽町','辰巳','新木場','潮見','葛西','一之江','小岩',
+  '向島','浅草橋','蔵前','東日本橋','馬喰町','小伝馬町','茅場町','八丁堀',
+  '入谷','三ノ輪','南千住','西日暮里','町屋','三河島','亀有','柴又',
+  '綾瀬','西新井','竹ノ塚','金町','高砂','新小岩','平井','亀戸',
+  '大森','池上','雪が谷大塚','千鳥町','久が原','糀谷','羽田',
+  '武蔵境','三鷹','小金井','小平','東村山','東大和','八王子','高尾',
+  '多摩センター','稲城','日野','聖蹟桜ヶ丘','府中本町','分倍河原',
+  '中目黒','祐天寺','都立大学','洗足','旗の台','荏原中延','中延','戸越',
 ];
+
+const SESSION_SIZE = 20;
+
+function seededRng(seed) {
+  let s = seed;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
+function getSessionSpots(seed) {
+  const rng = seededRng(seed);
+  const pool = [...ALL_SPOTS];
+  const out = [];
+  for (let i = 0; i < SESSION_SIZE; i++) {
+    const idx = Math.floor(rng() * (pool.length - i));
+    out.push(pool.splice(idx, 1)[0]);
+  }
+  return out;
+}
+
+let SPOTS = [];
+let sessionSeed = null;
 const PARTICLE_COLORS = ['#ff2d2d','#ff9500','#fff700','#00ff88','#00cfff','#ff44dd'];
 
 /* ── AUDIO ── */
@@ -231,12 +263,17 @@ function stamp(){
 /* ── INIT ── */
 window.addEventListener('load', () => {
   const p = qp();
+  const s = p.get('s');
   const h = p.get('h');
   const g = p.get('g');
-  if (h && g) {
+  if (s) {
+    sessionSeed = parseInt(s);
+    SPOTS = getSessionSpots(sessionSeed);
+  }
+  if (s && h && g) {
     renderResult(decPicks(h), decPicks(g));
     show('s-result');
-  } else if (h) {
+  } else if (s && h) {
     hostPicksEncoded = h;
     show('s-guest-landing');
   }
@@ -279,16 +316,10 @@ function updateGrid() {
 function goHost() {
   isGuest = false;
   myPicks = [];
+  sessionSeed = Math.floor(Math.random() * 2147483646) + 1;
+  SPOTS = getSessionSpots(sessionSeed);
   renderGrid();
   show('s-select');
-}
-
-function goGuest() {
-  const raw = prompt('相手のURLを貼り付け：');
-  if (!raw) return;
-  try { hostPicksEncoded = new URLSearchParams(new URL(raw).search).get('h'); } catch(e) { hostPicksEncoded = null; }
-  if (!hostPicksEncoded) { alert('URLが正しくありません'); return; }
-  startSelect();
 }
 
 function startSelect() {
@@ -302,14 +333,14 @@ function doneSelect() {
   if (myPicks.length < 3) return;
   if (isGuest) {
     const gEnc = encPicks(myPicks);
-    const resultUrl = `${location.origin}${location.pathname}?h=${hostPicksEncoded}&g=${gEnc}`;
+    const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${gEnc}`;
     history.replaceState(null, '', resultUrl);
     renderResult(decPicks(hostPicksEncoded), myPicks);
     show('s-result');
   } else {
     const hEnc = encPicks(myPicks);
-    waitUrl = `${location.origin}${location.pathname}?h=${hEnc}`;
-    history.replaceState(null, '', `?h=${hEnc}`);
+    waitUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hEnc}`;
+    history.replaceState(null, '', `?s=${sessionSeed}&h=${hEnc}`);
     document.getElementById('qr-box').innerHTML = '';
     new QRCode(document.getElementById('qr-box'), {text: waitUrl, width: 200, height: 200, colorDark: '#000', colorLight: '#fff'});
     show('s-wait');
