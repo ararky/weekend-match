@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>週末マッチ</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #09090b;
+      color: #fff;
+      font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+      min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .screen {
+      display: none;
+      width: 100%; min-height: 100dvh;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 2rem 1.5rem; text-align: center;
+      position: relative; z-index: 1;
+    }
+    .screen.on { display: flex; }
+
+    #fbg {
+      position: fixed; inset: 0; z-index: 0;
+      pointer-events: none;
+      background: #09090b;
+      transition: background 0.04s;
+    }
+    #flash-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: #fff; opacity: 0; pointer-events: none;
+      transition: opacity 0.05s;
+    }
+
+    /* ── TITLE ── */
+    .t-title { font-size: clamp(3rem, 14vw, 6rem); font-weight: 900; line-height: 1.05; letter-spacing: -0.03em; }
+    .t-sub { font-size: clamp(0.8rem, 2.8vw, 0.95rem); color: rgba(255,255,255,0.35); margin: 1.2rem 0 2.8rem; line-height: 1.8; }
+    .sep { width: 28px; height: 1px; background: rgba(255,255,255,0.12); margin: 1.4rem auto; }
+    .dim-text { font-size: 0.8rem; color: rgba(255,255,255,0.25); margin: 0.5rem 0; }
+    .guest-notice { display:none; font-size:0.85rem; color:#ff9500; margin-bottom:1rem; letter-spacing:0.02em; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      display: inline-block; padding: 0.95rem 2.8rem;
+      border: 1.5px solid rgba(255,255,255,0.8);
+      color: #fff; background: transparent;
+      font-size: 1rem; font-weight: 700; font-family: inherit;
+      letter-spacing: 0.04em; cursor: pointer; margin: 0.35rem;
+      transition: background 0.1s, color 0.1s;
+    }
+    .btn:hover, .btn:active { background: #fff; color: #000; }
+    .btn.red { background: #e81111; border-color: #e81111; }
+    .btn.red:hover, .btn.red:active { background: #ff0000; border-color: #ff0000; color: #fff; }
+    .btn.dim { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); font-size: 0.85rem; padding: 0.7rem 1.6rem; }
+    .btn.dim:hover, .btn.dim:active { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.4); }
+
+    /* ── FLASH ── */
+    #screen-flash { z-index: 1; justify-content: center; }
+    #tap-zone { position: fixed; inset: 0; z-index: 10; cursor: pointer; }
+
+    #f-timer {
+      position: fixed; top: 1.2rem; right: 1.5rem; z-index: 2;
+      font-size: clamp(1rem, 5vw, 1.5rem); font-weight: 900;
+      color: rgba(255,255,255,0.25); font-variant-numeric: tabular-nums;
+      transition: color 0.2s;
+    }
+    #f-timer.urgent { color: #e81111; }
+    @keyframes shake { 0%,100%{transform:translate(0,0)} 20%{transform:translate(-5px,3px)} 40%{transform:translate(5px,-3px)} 60%{transform:translate(-4px,4px)} 80%{transform:translate(4px,-2px)} }
+    #f-timer.shaking { animation: shake 0.1s infinite; }
+
+    #f-name {
+      font-size: 20vw;
+      font-weight: 900; letter-spacing: -0.04em; line-height: 0.9;
+      position: relative; z-index: 2;
+      transform-origin: center;
+      transition: font-size 0.08s ease-out;
+      text-align: center; width: 100%;
+      padding: 0 0.5rem;
+    }
+    @keyframes pop { 0%{transform:scale(0.85)} 60%{transform:scale(1.08)} 100%{transform:scale(1)} }
+    #f-name.popping { animation: pop 0.1s ease-out; }
+
+    .tap-hint { font-size: 0.8rem; color: rgba(255,255,255,0.18); margin-top: 3rem; animation: blink 1.4s infinite; position: relative; z-index: 2; letter-spacing: 0.08em; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── WAITING / QR ── */
+    .wt-label { font-size: 0.75rem; color: rgba(255,255,255,0.3); letter-spacing: 0.15em; margin-bottom: 0.35rem; }
+    .wt-name { font-size: clamp(3rem, 14vw, 6rem); font-weight: 900; letter-spacing: -0.03em; }
+    #qr-box { background:#fff; padding:12px; display:inline-block; margin: 1.2rem auto 0.5rem; }
+    .share-url { font-size:0.68rem; color:rgba(255,255,255,0.18); word-break:break-all; max-width:280px; margin: 0 auto 0.8rem; font-family:monospace; }
+    .dots { display:flex; justify-content:center; gap:6px; margin:0.6rem 0; }
+    .dot { width:9px; height:9px; background:#e81111; border-radius:50%; animation:dp 1.3s infinite; }
+    .dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+    @keyframes dp { 0%,80%,100%{transform:scale(.5);opacity:.25} 40%{transform:scale(1);opacity:1} }
+
+    /* ── RESULT POSTER ── */
+    #s-result { padding: 0; }
+    #res-inner { width: 100%; min-height: 100dvh; display: flex; flex-direction: column; justify-content: space-between; padding: 2.5rem 2rem; }
+
+    .res-top { display: flex; align-items: center; justify-content: space-between; }
+    .res-tag { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em; color: rgba(255,255,255,0.3); }
+    .res-tag.match { color: #ff9500; }
+    .res-stamp { font-size: 0.7rem; letter-spacing: 0.06em; color: rgba(255,255,255,0.22); font-family: monospace; text-align: right; }
+
+    .res-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .res-rule { width: 100%; height: 1px; background: rgba(255,255,255,0.1); }
+
+    .res-spot { font-size: clamp(4.5rem, 22vw, 10rem); font-weight: 900; letter-spacing: -0.04em; line-height: 0.9; margin: 0.6rem 0; }
+    .res-vibe { font-size: clamp(0.7rem, 2.5vw, 0.9rem); letter-spacing: 0.22em; color: rgba(255,255,255,0.2); }
+
+    .res-bottom { display: flex; align-items: flex-end; justify-content: space-between; }
+    .res-app { font-size: 0.65rem; color: rgba(255,255,255,0.15); letter-spacing: 0.1em; }
+
+    /* no match */
+    .nm-row { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; margin: 0.8rem 0; }
+    .nm-col { flex: 1; }
+    .nm-col:last-child { text-align: right; }
+    .nm-label { font-size: 0.65rem; letter-spacing: 0.18em; color: rgba(255,255,255,0.25); margin-bottom: 0.2rem; }
+    .nm-name { font-size: clamp(2.5rem, 12vw, 5.5rem); font-weight: 900; letter-spacing: -0.03em; line-height: 0.95; }
+    .nm-center { display: flex; align-items: center; padding-top: 1.4rem; }
+    .nm-vs { font-size: 1rem; color: rgba(255,255,255,0.12); letter-spacing: 0.1em; }
+
+    /* ── COIN TOSS ── */
+    #s-coin { background: #09090b; }
+    .coin-wrap { position: relative; width: 120px; height: 120px; margin: 2rem auto; }
+    .coin {
+      width: 120px; height: 120px;
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; font-weight: 900;
+      position: relative;
+    }
+    @keyframes spin-coin {
+      0%   { transform: rotateY(0deg) scale(1); }
+      25%  { transform: rotateY(540deg) scale(1.2); }
+      75%  { transform: rotateY(1440deg) scale(1.1); }
+      100% { transform: rotateY(1800deg) scale(1); }
+    }
+    .coin.spinning { animation: spin-coin 1.8s cubic-bezier(.4,0,.2,1) forwards; }
+
+    @keyframes coin-result-pop {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .coin-result-spot { font-size: clamp(3rem, 16vw, 7rem); font-weight: 900; letter-spacing: -0.03em; opacity: 0; }
+    .coin-result-spot.show { animation: coin-result-pop 0.55s cubic-bezier(.34,1.56,.64,1) forwards; }
+    .coin-status { font-size: 0.85rem; color: rgba(255,255,255,0.35); letter-spacing: 0.06em; margin-top: 0.5rem; min-height: 1.4em; }
+
+    /* ── PARTICLES ── */
+    #particles { position: fixed; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
+    .particle { position: absolute; width: 8px; height: 8px; border-radius: 50%; animation: fall linear forwards; }
+    @keyframes fall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
+
+    @keyframes pop-in { 0% { transform: scale(0.5) translateY(16px); opacity: 0; } 65% { transform: scale(1.1) translateY(-4px); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+    .pop-in { animation: pop-in 0.5s cubic-bezier(.34,1.56,.64,1) forwards; }
+    .pop-in-d { animation: pop-in 0.5s 0.1s cubic-bezier(.34,1.56,.64,1) both; }
+
+    /* ── QR (guest result) ── */
+    #guest-qr-box { background:#fff; padding:10px; display:inline-block; margin: 0.8rem auto 0.3rem; }
+    .guest-qr-url { font-size:0.65rem; color:rgba(255,255,255,0.15); word-break:break-all; max-width:240px; margin: 0 auto; font-family:monospace; }
+  </style>
+</head>
+<body>
+
+<div id="fbg"></div>
+<div id="flash-overlay"></div>
+<div id="particles"></div>
+
+<!-- TITLE -->
+<div class="screen on" id="s-title">
+  <p class="guest-notice" id="g-notice">友達のリンクを検知</p>
+  <p class="t-title">考えるな、<br>感じろ。</p>
+  <p class="t-sub">10秒。止めた場所に行け。</p>
+  <button class="btn red" id="btn-host" onclick="goHost()">友達と対決する</button>
+  <button class="btn dim" onclick="goSolo()">ひとりで決める</button>
+  <div class="sep"></div>
+  <button class="btn dim" onclick="goGuest()" style="font-size:0.75rem; padding:0.55rem 1.2rem">友達のリンクを受け取った</button>
+</div>
+
+<!-- FLASH -->
+<div class="screen" id="s-flash">
+  <div id="f-timer">10</div>
+  <div id="f-name">？？？</div>
+  <p class="tap-hint">ここだと思ったら止めろ</p>
+  <div id="tap-zone" onclick="onTap()"></div>
+</div>
+
+<!-- WAITING -->
+<div class="screen" id="s-wait">
+  <p class="wt-name" id="wt-name"></p>
+  <div id="qr-box" style="margin-top:1.5rem"></div>
+  <p class="share-url" id="s-url" style="margin-top:0.6rem"></p>
+  <button class="btn dim" onclick="copyUrl()" style="margin-top:0.4rem">URLをコピー</button>
+</div>
+
+<!-- COIN TOSS -->
+<div class="screen" id="s-coin">
+  <p style="font-size:0.8rem; letter-spacing:0.15em; color:rgba(255,255,255,0.3); margin-bottom:0.5rem">TIE BREAK</p>
+  <p style="font-size:clamp(1.5rem,7vw,2.5rem); font-weight:900; margin-bottom:0.3rem">運命に決めてもらう</p>
+  <p class="coin-status" id="coin-status">コインを投げろ</p>
+  <div class="coin-wrap">
+    <div class="coin" id="coin" onclick="tossCoin()">？</div>
+  </div>
+  <p class="coin-result-spot" id="coin-spot"></p>
+  <div id="coin-actions" style="margin-top:2rem; display:none">
+    <button class="btn red" onclick="reset()">もう一回</button>
+  </div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="s-result">
+  <div id="res-inner"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+/* ── DATA ── */
+/* ── FIREBASE ── */
+const DB_URL = 'https://tokyo-weekend-match-default-rtdb.asia-southeast1.firebasedatabase.app';
+let db = null;
+try {
+  firebase.initializeApp({ databaseURL: DB_URL });
+  db = firebase.database();
+} catch(e) {}
+
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function nowTime() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function logStop(spotName) {
+  if (!db) return;
+  db.ref(`stops/${spotName}/${todayKey()}`).push({ t: nowTime() });
+}
+
+async function fetchGhostTimes(spotName) {
+  if (!db) return [];
+  try {
+    const snap = await db.ref(`stops/${spotName}/${todayKey()}`).once('value');
+    const val = snap.val();
+    if (!val) return [];
+    return Object.values(val).map(v => v.t).sort();
+  } catch(e) { return []; }
+}
+
+async function renderGhost(spotName, myTime, containerId) {
+  const times = await fetchGhostTimes(spotName);
+  const el = document.getElementById(containerId);
+  if (!el || times.length === 0) return;
+  const marked = times.map(t => t === myTime ? `<span style="color:rgba(255,255,255,0.55)">${t}</span>` : `<span>${t}</span>`).join('  ');
+  el.innerHTML = `<p style="font-size:0.62rem;color:rgba(255,255,255,0.18);letter-spacing:0.1em;margin-bottom:0.35rem">今日ここを止めた時刻</p><p style="font-size:0.75rem;font-family:monospace;color:rgba(255,255,255,0.25);letter-spacing:0.08em;line-height:1.8">${marked}</p>`;
+}
+
+const SPOTS = [
+  {n:'渋谷',   v:'CHAOS'},     {n:'新宿',   v:'DESIRE'},
+  {n:'浅草',   v:'EDO'},       {n:'秋葉原', v:'FUTURE'},
+  {n:'上野',   v:'CULTURE'},   {n:'下北沢', v:'FREEDOM'},
+  {n:'中目黒', v:'STYLE'},     {n:'表参道', v:'CLASS'},
+  {n:'六本木', v:'NIGHT'},     {n:'恵比寿', v:'GRACE'},
+  {n:'池袋',   v:'ENERGY'},    {n:'原宿',   v:'IDENTITY'},
+  {n:'銀座',   v:'PRESTIGE'},  {n:'お台場', v:'NOSTALGIA'},
+  {n:'清澄白河',v:'SILENCE'},  {n:'谷中',   v:'CAT'},
+  {n:'吉祥寺', v:'IDEAL'},     {n:'築地',   v:'DAWN'},
+  {n:'代官山', v:'REFINED'},   {n:'丸の内', v:'POWER'},
+];
+const BG = ['#1a0000','#000020','#1a0010','#001a05','#200800','#00101a','#180018','#0a1500','#1a0a00','#00181a','#200010','#060020'];
+const PARTICLE_COLORS = ['#ff2d2d','#ff9500','#fff700','#00ff88','#00cfff','#ff44dd'];
+
+/* ── AUDIO ── */
+let ctx;
+function ac() { if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)(); return ctx; }
+function playTick(u) {
+  try { const c=ac(),o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+    o.type='square'; o.frequency.value=180+u*60;
+    g.gain.setValueAtTime(0.08+u*0.04,c.currentTime); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.06);
+    o.start(c.currentTime); o.stop(c.currentTime+0.07); } catch(e){}
+}
+function playLock() {
+  try { const c=ac(); [0,.04,.09].forEach((t,i)=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+    o.type='sawtooth'; o.frequency.value=80-i*15;
+    g.gain.setValueAtTime(0.25,c.currentTime+t); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+t+0.15);
+    o.start(c.currentTime+t); o.stop(c.currentTime+t+0.18); }); } catch(e){}
+}
+function playMatch() {
+  try { const c=ac(); [523,659,784,1047].forEach((f,i)=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+    o.type='triangle'; o.frequency.value=f; const t=c.currentTime+i*0.1;
+    g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(0.15,t+0.02); g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
+    o.start(t); o.stop(t+0.65); }); } catch(e){}
+}
+function playMiss() {
+  try { const c=ac(); [[300,0],[220,.15],[160,.3]].forEach(([f,d])=>{ const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+    o.type='sine'; o.frequency.value=f; const t=c.currentTime+d;
+    g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.2);
+    o.start(t); o.stop(t+0.22); }); } catch(e){}
+}
+function playCoin() {
+  try { const c=ac(); const o=c.createOscillator(),g=c.createGain(); o.connect(g); g.connect(c.destination);
+    o.type='sine'; o.frequency.setValueAtTime(800,c.currentTime); o.frequency.exponentialRampToValueAtTime(200,c.currentTime+1.8);
+    g.gain.setValueAtTime(0.1,c.currentTime); g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+1.8);
+    o.start(c.currentTime); o.stop(c.currentTime+1.8); } catch(e){}
+}
+function vib(p) { try { navigator.vibrate && navigator.vibrate(p); } catch(e){} }
+
+/* ── STATE ── */
+let isHost=true, isSolo=false, hostEnc=null;
+let flashTO=null, timerIN=null;
+let curIdx=0, timeLeft=10, hasPicked=false;
+let hostPickIdx=null, guestPickIdx=null;
+let coinTossed=false;
+
+function enc(i) { return btoa(String(i+53)); }
+function dec(s) { return parseInt(atob(s))-53; }
+function qp() { return new URLSearchParams(location.search); }
+
+function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); }
+
+function flashWhite() {
+  const el=document.getElementById('flash-overlay');
+  el.style.opacity='1';
+  setTimeout(()=>{ el.style.transition='opacity 0.3s'; el.style.opacity='0'; },50);
+  setTimeout(()=>{ el.style.transition='opacity 0.05s'; },400);
+}
+
+function burst() {
+  const box=document.getElementById('particles'); box.innerHTML='';
+  for(let i=0;i<60;i++){
+    const p=document.createElement('div'); p.className='particle';
+    p.style.left=Math.random()*100+'vw'; p.style.top='-10px';
+    const sz=6+Math.random()*8+'px'; p.style.width=p.style.height=sz;
+    p.style.background=PARTICLE_COLORS[Math.floor(Math.random()*PARTICLE_COLORS.length)];
+    p.style.animationDuration=(1.2+Math.random()*1.8)+'s';
+    p.style.animationDelay=(Math.random()*0.5)+'s';
+    box.appendChild(p);
+  }
+  setTimeout(()=>{ box.innerHTML=''; },3000);
+}
+
+/* ── INIT ── */
+window.addEventListener('load',()=>{
+  const p=qp();
+  if(p.get('h')) { hostEnc=p.get('h'); document.getElementById('g-notice').style.display='block'; document.getElementById('btn-host').style.display='none'; }
+  if(p.get('h')&&p.get('g')) { renderResult(dec(p.get('h')),dec(p.get('g'))); show('s-result'); }
+});
+
+/* ── MODES ── */
+function goHost() { isHost=true; isSolo=false; startFlash(); }
+function goSolo() { isHost=true; isSolo=true; startFlash(); }
+function goGuest() {
+  if(!hostEnc){
+    const raw=prompt('友達のURLを貼り付け：'); if(!raw) return;
+    try { hostEnc=new URLSearchParams(new URL(raw).search).get('h'); } catch(e){ hostEnc=null; }
+    if(!hostEnc){ alert('URLが正しくありません'); return; }
+  }
+  isHost=false; isSolo=false; startFlash();
+}
+
+/* ── FLASH ── */
+function startFlash() {
+  hasPicked=false; timeLeft=10;
+  show('s-flash');
+  const timerEl=document.getElementById('f-timer'),nameEl=document.getElementById('f-name'),vibeEl=document.getElementById('f-vibe'),fbg=document.getElementById('fbg');
+  timerEl.classList.remove('shaking');
+  let urgency=0;
+  function scaleUp(){
+    const u=10-timeLeft;
+    const vw=Math.min(20+u*8,92);
+    nameEl.style.fontSize=vw+'vw';
+    if(timeLeft<=3){ timerEl.style.display='none'; }
+  }
+
+  function next(){
+    if(hasPicked) return;
+    curIdx=Math.floor(Math.random()*SPOTS.length);
+    nameEl.classList.remove('popping'); void nameEl.offsetWidth; nameEl.classList.add('popping');
+    nameEl.textContent=SPOTS[curIdx].n;
+    fbg.style.background=BG[Math.floor(Math.random()*BG.length)];
+    playTick(urgency); vib(10);
+    flashTO=setTimeout(next,Math.max(60,360-urgency*42));
+  }
+  next();
+  timerEl.style.display='';
+  timerEl.textContent=10;
+  timerIN=setInterval(()=>{
+    timeLeft--;
+    timerEl.textContent=Math.max(0,timeLeft);
+    urgency=Math.min(7,10-timeLeft);
+    if(timeLeft<=5) timerEl.classList.add('urgent');
+    if(timeLeft<=3) timerEl.classList.add('shaking');
+    if(timeLeft<=0) onTap();
+    scaleUp();
+  },1000);
+}
+
+function onTap(){
+  if(hasPicked) return; hasPicked=true;
+  clearTimeout(flashTO); clearInterval(timerIN);
+  document.getElementById('fbg').style.background=''; document.getElementById('f-timer').classList.remove('shaking');
+  flashWhite(); playLock(); vib([40,20,80]);
+  const picked=curIdx;
+  if(isSolo){ renderSolo(picked); show('s-result'); }
+  else if(isHost) afterHost(picked);
+  else afterGuest(picked);
+}
+
+/* ── SOLO ── */
+function renderSolo(idx){
+  const s=SPOTS[idx];
+  const ts=stamp();
+  const el=document.getElementById('res-inner');
+  el.innerHTML=`
+    <div class="res-top pop-in">
+      <span class="res-tag">TODAY'S CALL</span>
+      <span class="res-stamp">${ts}</span>
+    </div>
+    <div class="res-center">
+      <div class="res-rule"></div>
+      <p class="res-spot pop-in-d">${s.n}</p>
+      <p class="res-vibe">${s.v}</p>
+      <div class="res-rule" style="margin-top:1rem"></div>
+      <div id="ghost-solo" style="margin-top:1rem;min-height:2.5rem"></div>
+    </div>
+    <div class="res-bottom pop-in" style="animation-delay:0.2s">
+      <div>
+        <span class="res-app">週末マッチ</span><br>
+        <span style="font-size:0.65rem;color:rgba(255,255,255,0.2);letter-spacing:0.06em">あなたが止めた場所。</span>
+      </div>
+      <div style="display:flex;gap:0.6rem">
+        <a class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(s.n)}" target="_blank">地図で開く</a>
+        <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
+      </div>
+    </div>
+  `;
+  window._shareSpot=s.n; window._shareMatch=false;
+  const myTime=nowTime(); logStop(s.n);
+  renderGhost(s.n, myTime, 'ghost-solo');
+}
+
+/* ── HOST ── */
+function afterHost(idx){
+  hostPickIdx=idx;
+  hostEnc=enc(idx);
+  document.getElementById('wt-name').textContent=SPOTS[idx].n;
+  const url=buildUrl(hostEnc,null);
+  document.getElementById('s-url').textContent=url;
+  document.getElementById('qr-box').innerHTML='';
+  new QRCode(document.getElementById('qr-box'),{text:url,width:180,height:180,colorDark:'#000',colorLight:'#fff'});
+  show('s-wait');
+}
+
+/* ── GUEST ── */
+function afterGuest(gIdx){
+  guestPickIdx=gIdx;
+  const hIdx=dec(hostEnc);
+  const gEnc=enc(gIdx);
+  const resultUrl=buildUrl(hostEnc,gEnc);
+  history.replaceState(null,'',resultUrl);
+  renderResult(hIdx,gIdx,true);
+  show('s-result');
+}
+
+function buildUrl(h,g){ const base=location.origin+location.pathname; return g?`${base}?h=${h}&g=${g}`:`${base}?h=${h}`; }
+
+/* ── RESULT ── */
+function stamp(){
+  const now=new Date();
+  const d=`${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  const days=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const t=`${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  return `${d}  ${days[now.getDay()]}  ${t}`;
+}
+
+function renderResult(hIdx,gIdx,isGuestView=false){
+  const h=SPOTS[hIdx],g=SPOTS[gIdx];
+  const match=hIdx===gIdx;
+  const el=document.getElementById('res-inner');
+  const ts=stamp();
+
+  if(match){
+    playMatch(); vib([50,30,50,30,200]); burst();
+    el.innerHTML=`
+      <div class="res-top pop-in">
+        <span class="res-tag match">PERFECT MATCH</span>
+        <span class="res-stamp">${ts}</span>
+      </div>
+      <div class="res-center">
+        <div class="res-rule"></div>
+        <p class="res-spot pop-in-d">${h.n}</p>
+        <p class="res-vibe">${h.v}</p>
+        <div class="res-rule" style="margin-top:1rem"></div>
+        <div id="ghost-match" style="margin-top:1rem;min-height:2.5rem"></div>
+      </div>
+      <div class="res-bottom pop-in" style="animation-delay:0.2s">
+        <div>
+          <span class="res-app">週末マッチ</span><br>
+          <span style="font-size:0.65rem;color:rgba(255,255,255,0.2);letter-spacing:0.06em">ふたりが止めた場所。</span>
+        </div>
+        <div style="display:flex;gap:0.6rem">
+          <a class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(h.n)}" target="_blank">地図で開く</a>
+          <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="doShare()">シェア</button>
+          <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
+        </div>
+      </div>
+    `;
+    const myTime=nowTime(); logStop(h.n);
+    renderGhost(h.n, myTime, 'ghost-match');
+  } else {
+    playMiss(); vib(30);
+
+    // guest view: show QR of result so host can scan
+    const guestQrHtml = isGuestView ? `
+      <div style="margin-top:0.8rem">
+        <p style="font-size:0.72rem;color:rgba(255,255,255,0.25);letter-spacing:0.08em;margin-bottom:0.4rem">友達に結果を見せる</p>
+        <div id="guest-qr-box"></div>
+        <p class="guest-qr-url" id="guest-qr-url">${location.href}</p>
+      </div>` : '';
+
+    el.innerHTML=`
+      <div class="res-top pop-in">
+        <span class="res-tag">NO MATCH</span>
+        <span class="res-stamp">${ts}</span>
+      </div>
+      <div class="res-center">
+        <div class="res-rule"></div>
+        <div class="nm-row">
+          <div class="nm-col">
+            <p class="nm-label">先攻</p>
+            <p class="nm-name">${h.n}</p>
+          </div>
+          <div class="nm-center"><span class="nm-vs">vs</span></div>
+          <div class="nm-col">
+            <p class="nm-label">後攻</p>
+            <p class="nm-name">${g.n}</p>
+          </div>
+        </div>
+        <div class="res-rule"></div>
+        <div id="ghost-nomatch" style="margin-top:1rem;min-height:2.5rem"></div>
+        ${guestQrHtml}
+      </div>
+      <div class="res-bottom pop-in" style="animation-delay:0.2s">
+        <div>
+          <span class="res-app">週末マッチ</span><br>
+          <span style="font-size:0.65rem;color:rgba(255,255,255,0.2);letter-spacing:0.06em">ふたりが止めた場所。</span>
+        </div>
+        <div style="display:flex;gap:0.6rem">
+          <button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="startCoinToss(${hIdx},${gIdx})">コイントス</button>
+          <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
+        </div>
+      </div>
+    `;
+    const myTime=nowTime();
+    logStop(h.n); logStop(g.n);
+    renderGhost(h.n, myTime, 'ghost-nomatch');
+
+    if(isGuestView){
+      setTimeout(()=>{
+        const box=document.getElementById('guest-qr-box');
+        if(box) new QRCode(box,{text:location.href,width:120,height:120,colorDark:'#000',colorLight:'#fff'});
+      },100);
+    }
+  }
+  window._shareSpot=match?h.n:`${h.n} vs ${g.n}`; window._shareMatch=match;
+}
+
+/* ── COIN TOSS ── */
+let _coinSpots=[];
+function startCoinToss(hIdx,gIdx){
+  _coinSpots=[hIdx,gIdx]; coinTossed=false;
+  document.getElementById('coin').textContent='？';
+  document.getElementById('coin').onclick=tossCoin;
+  document.getElementById('coin-spot').textContent='';
+  document.getElementById('coin-spot').classList.remove('show');
+  document.getElementById('coin-actions').style.display='none';
+  document.getElementById('coin-status').textContent='コインをタップ';
+  show('s-coin');
+}
+
+function tossCoin(){
+  if(coinTossed) return; coinTossed=true;
+  const coin=document.getElementById('coin');
+  const status=document.getElementById('coin-status');
+  coin.onclick=null;
+  playCoin(); vib([30,100,30,100,30]);
+  coin.classList.add('spinning');
+  status.textContent='決まる...';
+
+  setTimeout(()=>{
+    const winner=_coinSpots[Math.floor(Math.random()*2)];
+    const s=SPOTS[winner];
+    coin.textContent=s.n.charAt(0);
+    coin.classList.remove('spinning');
+
+    setTimeout(()=>{
+      const spotEl=document.getElementById('coin-spot');
+      spotEl.textContent=s.n;
+      spotEl.classList.add('show');
+      status.textContent='運命が決めた';
+      playMatch(); vib([50,30,200]);
+      burst();
+      setTimeout(()=>{ document.getElementById('coin-actions').style.display='block'; },600);
+    },200);
+  },1900);
+}
+
+/* ── UTILS ── */
+function copyUrl(){ navigator.clipboard.writeText(document.getElementById('s-url').textContent).then(()=>alert('コピーしました')); }
+function doShare(){
+  const spot=window._shareSpot||'??';
+  const msg=window._shareMatch?`ふたりとも「${spot}」一致した。運命。 #週末マッチ`:`${spot} で割れた。 #週末マッチ`;
+  if(navigator.share) navigator.share({text:msg,url:location.href});
+  else navigator.clipboard.writeText(msg+'\n'+location.href).then(()=>alert('コピーしました'));
+}
+function reset(){
+  clearTimeout(flashTO); clearInterval(timerIN);
+  history.replaceState(null,'',location.pathname);
+  isHost=true; isSolo=false; hostEnc=null; hasPicked=false; coinTossed=false;
+  document.getElementById('g-notice').style.display='none';
+  document.getElementById('btn-host').style.display='';
+  show('s-title');
+}
+</script>
+</body>
+</html>
