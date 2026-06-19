@@ -187,6 +187,15 @@ const ALL_SPOTS = [
 const SESSION_SIZE = 20;
 const WILDCARD = 99;
 
+const ACTIVITIES = [
+  '喫茶店でだらだら','町中華でランチ','神社でおみくじ','公園で1000歩',
+  'ミシュランで背伸び','居酒屋でハシゴ','古着屋めぐり','銭湯で整う',
+  '深夜ラーメン','映画をはしご','本屋でブラブラ','屋台でビール',
+  '展覧会めぐり','カラオケ3時間','市場で買い物','夕焼けを見る',
+  '初めての店に入る','路地裏を探検','地元のパン屋を探す','行列に並んでみる',
+  'コンビニスイーツ食べ比べ','酒屋でワインを選ぶ','朝ごはん活','スパで半日',
+];
+
 function seededRng(seed) {
   let s = seed;
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
@@ -389,6 +398,7 @@ function renderResult(hPicks, gPicks) {
   if (matches.length > 0) {
     playMatch(); vib([50,30,50,30,200]); burst();
     const matchName = spotName(matches[0]);
+    const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
     el.innerHTML = `
       <div class="res-top pop-in">
         <span class="res-tag match">MATCH</span>
@@ -396,7 +406,8 @@ function renderResult(hPicks, gPicks) {
       </div>
       <div class="res-center">
         <div class="res-rule"></div>
-        <p class="res-spot pop-in-d">${matchName}</p>
+        <p class="res-spot pop-in-d" id="res-spot-name" ${hWild&&gWild?'style="cursor:pointer" onclick="rerollSpot()"':''}>${matchName}${hWild&&gWild?' ↺':''}</p>
+        <p id="activity-line" style="font-size:clamp(0.9rem,3vw,1.1rem);color:rgba(255,255,255,0.45);letter-spacing:0.04em;margin-top:0.8rem;cursor:pointer" onclick="rerollActivity()">今日のやること：<span id="activity-text">${activity}</span> ↺</p>
         <div class="res-rule" style="margin-top:1rem"></div>
         <div class="picks-wrap" style="margin-top:1.2rem">
           <div class="picks-col">
@@ -453,6 +464,22 @@ function renderResult(hPicks, gPicks) {
       </div>
     `;
   }
+}
+
+function rerollSpot() {
+  const el = document.getElementById('res-spot-name');
+  if (!el) return;
+  const name = SPOTS[Math.floor(Math.random() * SPOTS.length)];
+  el.textContent = name + ' ↺';
+  rerollActivity();
+  vib(30);
+}
+
+function rerollActivity() {
+  const el = document.getElementById('activity-text');
+  if (!el) return;
+  el.textContent = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+  vib(20);
 }
 
 function doShare(spot, isMatch) {
