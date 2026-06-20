@@ -80,6 +80,16 @@
     @keyframes dp { 0%,80%,100%{transform:scale(.5);opacity:.25} 40%{transform:scale(1);opacity:1} }
 
     /* ── RESULT ── */
+    #s-mycard { padding: 0; flex-direction: column; }
+    #mycard-inner { width: 100%; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    .mycard-poster { width: 100%; max-width: 420px; background: linear-gradient(160deg, #1a0a1f, #0a0a0a 60%); border: 1px solid rgba(255,255,255,0.08); border-radius: 1.2rem; padding: 2.4rem 1.8rem; box-shadow: 0 20px 60px rgba(255,0,110,0.12); }
+    .mycard-tag { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.22em; color: #FF006E; margin-bottom: 1.8rem; }
+    .mycard-list { display: flex; flex-direction: column; gap: 1rem; }
+    .mycard-row { display: flex; align-items: baseline; gap: 0.9rem; }
+    .mycard-idx { font-size: 0.85rem; font-family: monospace; color: rgba(255,255,255,0.25); flex-shrink: 0; }
+    .mycard-name { font-size: clamp(1.8rem, 8vw, 2.6rem); font-weight: 900; letter-spacing: -0.02em; line-height: 1.1; }
+    .mycard-hint { font-size: 0.75rem; color: rgba(255,255,255,0.3); letter-spacing: 0.06em; margin-top: 2rem; }
+    .mycard-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.65rem; letter-spacing: 0.06em; color: rgba(255,255,255,0.3); }
     #s-result { padding: 0; }
     #res-inner { width: 100%; min-height: 100dvh; display: flex; flex-direction: column; justify-content: space-between; padding: 2.5rem 2rem; }
 
@@ -258,8 +268,8 @@
 
 <!-- GUEST LANDING -->
 <div class="screen" id="s-guest-landing">
-  <p class="t-title">相手が<br>3つ選んだ。</p>
-  <p class="t-sub">あなたも3つ選んで。</p>
+  <p class="t-title">週末、<br>どっか行こう。</p>
+  <p class="t-sub">相手はもう3つ選んだ。<br>あなたも行きたいとこ3つ選んで。</p>
   <button class="btn red" onclick="startSelect()" style="margin-top:1rem">選ぶ</button>
 </div>
 
@@ -280,15 +290,20 @@
 <div class="screen" id="s-wait">
   <p class="wait-title">相手に<br>見せて。</p>
   <div id="qr-box" style="background:#fff;padding:14px;display:inline-block;margin:1.5rem auto 1rem"></div>
-  <div style="display:flex;gap:0.6rem;justify-content:center">
-    <button class="btn dim" onclick="shareWaitUrl()">リンクを送る</button>
-    <button class="btn dim" onclick="copyWaitUrl()">コピー</button>
+  <div style="display:flex;flex-direction:column;gap:0.9rem;align-items:center">
+    <button class="btn red" onclick="shareWaitUrl()">リンクを送る</button>
+    <button onclick="showMyCard()" style="background:none;border:none;color:rgba(255,255,255,0.4);font-family:inherit;font-size:0.8rem;letter-spacing:0.05em;cursor:pointer;text-decoration:underline;text-underline-offset:4px">私の3つを見る</button>
   </div>
 </div>
 
 <!-- RESULT -->
 <div class="screen" id="s-result">
   <div id="res-inner"></div>
+</div>
+
+<!-- MY CARD -->
+<div class="screen" id="s-mycard">
+  <div id="mycard-inner"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -389,7 +404,7 @@ let waitUrl = '';
 function encPicks(arr) { return btoa(arr.join(',')); }
 function decPicks(s) { try { return atob(s).split(',').map(Number); } catch(e){ return []; } }
 function qp() { return new URLSearchParams(location.search); }
-function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); }
+function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard') ? 'none' : 'flex'; }
 
 function burst() {
   const box=document.getElementById('particles'); box.innerHTML='';
@@ -530,11 +545,12 @@ function doneSelect() {
   }
 }
 
+const INVITE_TEXT = '週末、どっか行こう。\n行きたいとこ3つ選んで👇';
 function copyWaitUrl() {
-  navigator.clipboard.writeText(waitUrl).then(() => alert('コピーしました'));
+  navigator.clipboard.writeText(`${INVITE_TEXT}\n${waitUrl}`).then(() => alert('コピーしました'));
 }
 function shareWaitUrl() {
-  if (navigator.share) navigator.share({ text: '3つ選んで！', url: waitUrl });
+  if (navigator.share) navigator.share({ text: INVITE_TEXT, url: waitUrl });
   else copyWaitUrl();
 }
 
@@ -592,7 +608,7 @@ function renderResult(hPicks, gPicks) {
         <span class="res-app">週末マッチ</span>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:flex-end">
           ${isGuest ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
-          <a class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName)}" target="_blank">地図で開く</a>
+          <a id="map-link" class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName + (activityToQuery(activity) ? ' ' + activityToQuery(activity) : ''))}" target="_blank">地図で開く</a>
           <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
         </div>
         <div id="result-qr" style="display:none;margin-top:1rem;text-align:center">
@@ -601,33 +617,51 @@ function renderResult(hPicks, gPicks) {
       </div>
     `;
   } else {
-    playMiss(); vib(30);
+    playMiss(); vib(40);
+    // 重ならなかった → 二人が出した6つから1つ提案（シード固定で両者同じ）
+    const pool = [...new Set([...hPicks, ...gPicks])].filter(i => i !== WILDCARD);
+    const pickRng = seededRng((sessionSeed || 1) + 55);
+    const proposed = pool.length ? pool[Math.floor(pickRng() * pool.length)]
+                                 : Math.floor(pickRng() * SPOTS.length);
+    const matchName = spotName(proposed);
+    const actRng = seededRng((sessionSeed || 1) + 99);
+    const activity = ACTIVITIES[Math.floor(actRng() * ACTIVITIES.length)];
     el.innerHTML = `
       <div class="res-top pop-in">
-        <span class="res-tag">NO MATCH</span>
+        <span class="res-tag" style="background:#FFD60A;color:#000;padding:0.25rem 0.7rem;border-radius:1rem;letter-spacing:0.1em">じゃあ、ここ</span>
         <span class="res-stamp">${ts}</span>
       </div>
       <div class="res-center">
         <div class="res-rule"></div>
-        <div class="picks-wrap" style="margin-top:1.5rem">
+        <p style="font-size:0.8rem;color:rgba(255,255,255,0.4);letter-spacing:0.08em;margin-bottom:0.4rem">重ならなかった。間をとって——</p>
+        <p class="res-spot pop-in-d" id="res-spot-name">${matchName}</p>
+        <p id="activity-line" style="font-size:clamp(0.9rem,3vw,1.1rem);color:rgba(255,255,255,0.45);letter-spacing:0.04em;margin-top:0.8rem;cursor:pointer" onclick="rerollActivity()">今日のやること：<span id="activity-text">${activity}</span> ↺</p>
+        <div class="res-rule" style="margin-top:1rem"></div>
+        <div class="picks-wrap" style="margin-top:1.2rem">
           <div class="picks-col">
             <p class="picks-label">あなた</p>
             <div class="picks-list">
-              ${hPicks.map(i=>`<p class="pick-item">${spotName(i)}</p>`).join('')}
+              ${hPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
           <div class="picks-col">
             <p class="picks-label">相手</p>
             <div class="picks-list">
-              ${gPicks.map(i=>`<p class="pick-item">${spotName(i)}</p>`).join('')}
+              ${gPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
         </div>
-        <div class="res-rule" style="margin-top:1.5rem"></div>
       </div>
       <div class="res-bottom pop-in" style="animation-delay:0.2s">
         <span class="res-app">週末マッチ</span>
-        <button class="btn red" style="padding:0.5rem 1.8rem;font-size:0.9rem" onclick="reset()">もう一回</button>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:flex-end">
+          ${isGuest ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
+          <a id="map-link" class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName + (activityToQuery(activity) ? ' ' + activityToQuery(activity) : ''))}" target="_blank">地図で開く</a>
+          <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
+        </div>
+        <div id="result-qr" style="display:none;margin-top:1rem;text-align:center">
+          <div id="result-qr-box" style="background:#fff;padding:12px;display:inline-block"></div>
+        </div>
       </div>
     `;
   }
@@ -668,14 +702,40 @@ function rerollActivity() {
   vib(20);
 }
 
+// やること → 地図検索キーワード（街と掛け合わせて実在の店に着地させる）
+const ACT_QUERY = {
+  '喫茶店':'カフェ','町中華':'中華料理','神社':'神社','公園':'公園','ミシュラン':'レストラン',
+  '居酒屋':'居酒屋','古着':'古着屋','銭湯':'銭湯','ラーメン':'ラーメン','映画':'映画館',
+  '本屋':'書店','屋台':'屋台','展覧会':'美術館','カラオケ':'カラオケ','市場':'市場',
+  'パン屋':'パン屋','行列':'人気店','コンビニ':'コンビニ','酒屋':'ワインバー','朝ごはん':'モーニング','スパ':'スパ',
+};
+function activityToQuery(activity) {
+  for (const k in ACT_QUERY) if (activity && activity.includes(k)) return ACT_QUERY[k];
+  return '';
+}
+function curSpotName() {
+  const el = document.getElementById('res-spot-name');
+  return el ? el.textContent.replace('↺', '').trim() : '';
+}
+function updateMapLink() {
+  const a = document.getElementById('map-link');
+  if (!a) return;
+  const act = document.getElementById('activity-text');
+  const kw = activityToQuery(act ? act.textContent : '');
+  const q = curSpotName() + (kw ? ' ' + kw : '');
+  a.href = 'https://www.google.com/maps/search/' + encodeURIComponent(q);
+}
+
 function applySpot(name) {
   const el = document.getElementById('res-spot-name');
   if (el) el.textContent = name + ' ↺';
+  updateMapLink();
 }
 
 function applyActivity(name) {
   const el = document.getElementById('activity-text');
   if (el) el.textContent = name;
+  updateMapLink();
 }
 
 function doShare(spot, isMatch) {
@@ -686,6 +746,29 @@ function doShare(spot, isMatch) {
 
 function openHelp() { document.getElementById('help-overlay').classList.add('open'); }
 function closeHelp() { document.getElementById('help-overlay').classList.remove('open'); }
+
+function showMyCard() {
+  const picks = myPicks.includes(WILDCARD) ? [WILDCARD] : myPicks;
+  const list = picks.map((i, n) => `
+    <div class="mycard-row pop-in-d" style="animation-delay:${0.05 * n}s">
+      <span class="mycard-idx">${String(n + 1).padStart(2, '0')}</span>
+      <span class="mycard-name">${spotName(i)}</span>
+    </div>`).join('');
+  document.getElementById('mycard-inner').innerHTML = `
+    <div class="mycard-poster">
+      <p class="mycard-tag pop-in">私が選ぶ、週末</p>
+      <div class="mycard-list">${list}</div>
+      <p class="mycard-hint">スクショして、ストーリーに。</p>
+      <div class="mycard-foot">
+        <span>週末マッチ</span>
+        <span>ararky.github.io/weekend-match</span>
+      </div>
+    </div>
+    <button class="btn dim mycard-back" onclick="show('s-wait')" style="margin-top:1.2rem">戻る</button>
+  `;
+  show('s-mycard');
+  vib(15);
+}
 
 function reset() {
   history.replaceState(null, '', location.pathname);
