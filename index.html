@@ -488,6 +488,17 @@ function renderResult(hPicks, gPicks) {
       </div>
     `;
   }
+  listenResult();
+}
+
+function listenResult() {
+  if (!db || !sessionSeed) return;
+  db.ref(`sessions/${sessionSeed}`).on('value', snap => {
+    const val = snap.val();
+    if (!val) return;
+    if (val.spot) applySpot(val.spot);
+    if (val.activity) applyActivity(val.activity);
+  });
 }
 
 function showResultQr() {
@@ -500,19 +511,28 @@ function showResultQr() {
 }
 
 function rerollSpot() {
-  const el = document.getElementById('res-spot-name');
-  if (!el) return;
   const name = SPOTS[Math.floor(Math.random() * SPOTS.length)];
-  el.textContent = name + ' ↺';
-  rerollActivity();
+  const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+  applySpot(name); applyActivity(activity);
+  if (db) db.ref(`sessions/${sessionSeed}`).update({spot: name, activity});
   vib(30);
 }
 
 function rerollActivity() {
-  const el = document.getElementById('activity-text');
-  if (!el) return;
-  el.textContent = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+  const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+  applyActivity(activity);
+  if (db) db.ref(`sessions/${sessionSeed}`).update({activity});
   vib(20);
+}
+
+function applySpot(name) {
+  const el = document.getElementById('res-spot-name');
+  if (el) el.textContent = name + ' ↺';
+}
+
+function applyActivity(name) {
+  const el = document.getElementById('activity-text');
+  if (el) el.textContent = name;
 }
 
 function doShare(spot, isMatch) {
