@@ -399,6 +399,7 @@ function vib(p) { try { navigator.vibrate && navigator.vibrate(p); } catch(e){} 
 let myPicks = [];
 let hostPicksEncoded = null;
 let isGuest = false;
+let myRole = null; // 'h' = ホスト, 'g' = ゲスト（描画時の「あなた」判定に使う）
 let waitUrl = '';
 
 // URLセーフbase64（+ / = はURLで壊れる → - _ に置換し = は除去）
@@ -520,33 +521,43 @@ function startSelect() {
   show('s-select');
 }
 
+// h と g が両方揃ったら、両端末で同一のデータから結果を描画する（唯一の正 = Firebase）
+function renderFromSession(seed, val) {
+  if (!val || !val.h || !val.g) return false;
+  if (db) db.ref(`sessions/${seed}`).off();
+  history.replaceState(null, '', `${location.pathname}?s=${seed}&h=${val.h}&g=${val.g}`);
+  renderResult(decPicks(val.h), decPicks(val.g));
+  show('s-result');
+  return true;
+}
+
 function doneSelect() {
   if (myPicks.length < 3 && !myPicks.includes(WILDCARD)) return;
+  const mine = encPicks(myPicks);
   if (isGuest) {
-    const gEnc = encPicks(myPicks);
-    const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${gEnc}`;
-    history.replaceState(null, '', resultUrl);
-    if (db) db.ref(`sessions/${sessionSeed}`).set({g: gEnc});
-    renderResult(decPicks(hostPicksEncoded), myPicks);
-    show('s-result');
+    myRole = 'g';
+    if (db) {
+      // 自分(g)と、URLで受け取ったホスト(h)を両方書き込んでFirebaseを確定させる
+      const update = { g: mine };
+      if (hostPicksEncoded) update.h = hostPicksEncoded;
+      db.ref(`sessions/${sessionSeed}`).update(update);
+      db.ref(`sessions/${sessionSeed}`).on('value', snap => renderFromSession(sessionSeed, snap.val()));
+    } else {
+      // オフライン: URLのホスト選択で描画
+      history.replaceState(null, '', `${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${mine}`);
+      renderResult(decPicks(hostPicksEncoded), myPicks);
+      show('s-result');
+    }
   } else {
-    const hEnc = encPicks(myPicks);
-    waitUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hEnc}`;
-    history.replaceState(null, '', `?s=${sessionSeed}&h=${hEnc}`);
+    myRole = 'h';
+    waitUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${mine}`;
+    history.replaceState(null, '', `?s=${sessionSeed}&h=${mine}`);
     document.getElementById('qr-box').innerHTML = '';
     new QRCode(document.getElementById('qr-box'), {text: waitUrl, width: 200, height: 200, colorDark: '#000', colorLight: '#fff'});
     show('s-wait');
     if (db) {
-      db.ref(`sessions/${sessionSeed}`).on('value', snap => {
-        const val = snap.val();
-        if (!val || !val.g) return;
-        db.ref(`sessions/${sessionSeed}`).off();
-        const hEnc = encPicks(myPicks);
-        const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hEnc}&g=${val.g}`;
-        history.replaceState(null, '', resultUrl);
-        renderResult(myPicks, decPicks(val.g));
-        show('s-result');
-      });
+      db.ref(`sessions/${sessionSeed}`).update({ h: mine });
+      db.ref(`sessions/${sessionSeed}`).on('value', snap => renderFromSession(sessionSeed, snap.val()));
     }
   }
 }
@@ -579,9 +590,10 @@ function renderResult(hPicks, gPicks) {
   }
   const el = document.getElementById('res-inner');
   const ts = stamp();
-  // 視点に応じて「あなた」=自分の選択にする（ゲストはgPicksが自分）
-  const youPicks = isGuest ? gPicks : hPicks;
-  const themPicks = isGuest ? hPicks : gPicks;
+  // 視点に応じて「あなた」=自分の選択にする（hPicks=ホスト, gPicks=ゲスト固定）
+  const iAmHost = myRole ? myRole === 'h' : !isGuest;
+  const youPicks = iAmHost ? hPicks : gPicks;
+  const themPicks = iAmHost ? gPicks : hPicks;
 
   if (matches.length > 0) {
     playMatch(); vib([50,30,50,30,200]); burst();
@@ -616,7 +628,7 @@ function renderResult(hPicks, gPicks) {
       <div class="res-bottom pop-in" style="animation-delay:0.2s">
         <span class="res-app">週末マッチ</span>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:flex-end">
-          ${isGuest ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
+          ${!iAmHost ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
           <a id="map-link" class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName + (activityToQuery(activity) ? ' ' + activityToQuery(activity) : ''))}" target="_blank">地図で開く</a>
           <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
         </div>
@@ -665,7 +677,7 @@ function renderResult(hPicks, gPicks) {
       <div class="res-bottom pop-in" style="animation-delay:0.2s">
         <span class="res-app">週末マッチ</span>
         <div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:flex-end">
-          ${isGuest ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
+          ${!iAmHost ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
           <a id="map-link" class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName + (activityToQuery(activity) ? ' ' + activityToQuery(activity) : ''))}" target="_blank">地図で開く</a>
           <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
         </div>
@@ -782,7 +794,7 @@ function showMyCard() {
 
 function reset() {
   history.replaceState(null, '', location.pathname);
-  myPicks = []; hostPicksEncoded = null; isGuest = false; waitUrl = '';
+  myPicks = []; hostPicksEncoded = null; isGuest = false; waitUrl = ''; myRole = null;
   show('s-title');
 }
 </script>
