@@ -401,8 +401,14 @@ let hostPicksEncoded = null;
 let isGuest = false;
 let waitUrl = '';
 
-function encPicks(arr) { return btoa(arr.join(',')); }
-function decPicks(s) { try { return atob(s).split(',').map(Number); } catch(e){ return []; } }
+// URLセーフbase64（+ / = はURLで壊れる → - _ に置換し = は除去）
+function encPicks(arr) { return btoa(arr.join(',')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+function decPicks(s) {
+  try {
+    const b = String(s).replace(/-/g,'+').replace(/_/g,'/');
+    return atob(b).split(',').map(Number).filter(n => !isNaN(n));
+  } catch(e){ return []; }
+}
 function qp() { return new URLSearchParams(location.search); }
 function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard') ? 'none' : 'flex'; }
 
@@ -573,6 +579,9 @@ function renderResult(hPicks, gPicks) {
   }
   const el = document.getElementById('res-inner');
   const ts = stamp();
+  // 視点に応じて「あなた」=自分の選択にする（ゲストはgPicksが自分）
+  const youPicks = isGuest ? gPicks : hPicks;
+  const themPicks = isGuest ? hPicks : gPicks;
 
   if (matches.length > 0) {
     playMatch(); vib([50,30,50,30,200]); burst();
@@ -593,13 +602,13 @@ function renderResult(hPicks, gPicks) {
           <div class="picks-col">
             <p class="picks-label">あなた</p>
             <div class="picks-list">
-              ${hPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
+              ${youPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
           <div class="picks-col">
             <p class="picks-label">相手</p>
             <div class="picks-list">
-              ${gPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
+              ${themPicks.map(i=>`<p class="pick-item${matches.includes(i)?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
         </div>
@@ -642,13 +651,13 @@ function renderResult(hPicks, gPicks) {
           <div class="picks-col">
             <p class="picks-label">あなた</p>
             <div class="picks-list">
-              ${hPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
+              ${youPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
           <div class="picks-col">
             <p class="picks-label">相手</p>
             <div class="picks-list">
-              ${gPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
+              ${themPicks.map(i=>`<p class="pick-item${i===proposed?' hit':''}">${spotName(i)}</p>`).join('')}
             </div>
           </div>
         </div>
