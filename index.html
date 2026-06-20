@@ -406,9 +406,9 @@ let waitUrl = '';
 function encPicks(arr) { return btoa(arr.join(',')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
 function decPicks(s) {
   try {
-    // 共有時に招待文などが末尾に連結されることがあるため、先頭の有効base64url文字だけ採用
-    const m = String(s).match(/^[A-Za-z0-9\-_]+/);
-    const b = (m ? m[0] : '').replace(/-/g,'+').replace(/_/g,'/');
+    // 共有時に招待文等が前後に連結されることがあるため、base64url以外を区切り扱いし最初のトークンを採用
+    const token = String(s).replace(/[^A-Za-z0-9\-_]/g, ' ').trim().split(/\s+/)[0] || '';
+    const b = token.replace(/-/g,'+').replace(/_/g,'/');
     if (!b) return [];
     return atob(b).split(',').map(Number).filter(n => !isNaN(n));
   } catch(e){ return []; }
@@ -524,12 +524,16 @@ function startSelect() {
   show('s-select');
 }
 
-// h と g が両方揃ったら、両端末で同一のデータから結果を描画する（唯一の正 = Firebase）
+// h と g が両方「有効に」揃ったら描画。デコード結果が空なら未確定として待つ（空欄表示を防ぐ）
 function renderFromSession(seed, val) {
-  if (!val || !val.h || !val.g) return false;
+  if (!val) return false;
+  const hp = decPicks(val.h);
+  const gp = decPicks(val.g);
+  if (hp.length === 0 || gp.length === 0) return false;
   if (db) db.ref(`sessions/${seed}`).off();
-  history.replaceState(null, '', `${location.pathname}?s=${seed}&h=${val.h}&g=${val.g}`);
-  renderResult(decPicks(val.h), decPicks(val.g));
+  // URLはクリーンに再エンコードして残す
+  history.replaceState(null, '', `${location.pathname}?s=${seed}&h=${encPicks(hp)}&g=${encPicks(gp)}`);
+  renderResult(hp, gp);
   show('s-result');
   return true;
 }
@@ -539,18 +543,12 @@ function doneSelect() {
   const mine = encPicks(myPicks);
   if (isGuest) {
     myRole = 'g';
-    if (db) {
-      // 自分(g)と、URLで受け取ったホスト(h)を両方書き込んでFirebaseを確定させる
-      const update = { g: mine };
-      if (hostPicksEncoded) update.h = hostPicksEncoded;
-      db.ref(`sessions/${sessionSeed}`).update(update);
-      db.ref(`sessions/${sessionSeed}`).on('value', snap => renderFromSession(sessionSeed, snap.val()));
-    } else {
-      // オフライン: URLのホスト選択で描画
-      history.replaceState(null, '', `${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${mine}`);
-      renderResult(decPicks(hostPicksEncoded), myPicks);
-      show('s-result');
-    }
+    const hostPicks = decPicks(hostPicksEncoded); // 汚染を除去したホスト選択
+    // ゲストは自分のgだけ書く（hはホストが書く唯一の正。上書きしてはいけない）
+    if (db) db.ref(`sessions/${sessionSeed}`).update({ g: mine });
+    history.replaceState(null, '', `${location.pathname}?s=${sessionSeed}&h=${encPicks(hostPicks)}&g=${mine}`);
+    renderResult(hostPicks, myPicks);
+    show('s-result');
   } else {
     myRole = 'h';
     waitUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${mine}`;
