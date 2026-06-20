@@ -138,7 +138,10 @@
     <p class="sel-count"><span id="sel-n">0</span> / 3</p>
   </div>
   <div class="sel-grid" id="sel-grid"></div>
-  <button class="btn red" id="btn-done" onclick="doneSelect()" disabled>決定</button>
+  <div style="display:flex;gap:0.6rem;justify-content:center">
+    <button class="btn red" id="btn-done" onclick="doneSelect()" disabled>決定</button>
+    <button class="btn dim" onclick="reshuffleSpots()">↺ 再提案</button>
+  </div>
 </div>
 
 <!-- WAIT -->
@@ -347,6 +350,14 @@ function goHost() {
   SPOTS = getSessionSpots(sessionSeed);
   renderGrid();
   show('s-select');
+}
+
+function reshuffleSpots() {
+  sessionSeed = Math.floor(Math.random() * 2147483646) + 1;
+  SPOTS = getSessionSpots(sessionSeed);
+  myPicks = [];
+  renderGrid();
+  vib(20);
 }
 
 function startSelect() {
