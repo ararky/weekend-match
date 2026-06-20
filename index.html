@@ -118,6 +118,13 @@
     .particle { position: absolute; width: 8px; height: 8px; border-radius: 50%; animation: fall linear forwards; }
     @keyframes fall { 0% { transform: translateY(-20px) rotate(0deg); opacity: 1; } 100% { transform: translateY(110vh) rotate(720deg); opacity: 0; } }
 
+    #s-reveal { align-items: center; justify-content: center; }
+    .reveal-text { font-size: clamp(1.6rem, 7vw, 2.6rem); font-weight: 900; line-height: 1.25; letter-spacing: -0.02em; text-align: center; animation: revealPulse 0.9s ease-in-out infinite; }
+    @keyframes revealPulse { 0%,100% { opacity: 0.45; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1.02); } }
+
+    #toast { position: fixed; left: 50%; bottom: 2.2rem; transform: translateX(-50%) translateY(20px); background: rgba(255,255,255,0.95); color: #000; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.7rem 1.3rem; border-radius: 2rem; opacity: 0; pointer-events: none; transition: opacity 0.25s, transform 0.25s; z-index: 300; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
     @keyframes pop-in { 0% { transform: scale(0.5) translateY(16px); opacity: 0; } 65% { transform: scale(1.1) translateY(-4px); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
     .pop-in { animation: pop-in 0.5s cubic-bezier(.34,1.56,.64,1) forwards; }
     .pop-in-d { animation: pop-in 0.5s 0.1s cubic-bezier(.34,1.56,.64,1) both; }
@@ -301,10 +308,17 @@
   <div id="res-inner"></div>
 </div>
 
+<!-- REVEAL（結果が開く前のタメ。非同期前提＝開いた本人がドラマを味わう） -->
+<div class="screen" id="s-reveal">
+  <p id="reveal-text" class="reveal-text">ふたりの3つ、<br>あわせてる…</p>
+</div>
+
 <!-- MY CARD -->
 <div class="screen" id="s-mycard">
   <div id="mycard-inner"></div>
 </div>
+
+<div id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -414,7 +428,23 @@ function decPicks(s) {
   } catch(e){ return []; }
 }
 function qp() { return new URLSearchParams(location.search); }
-function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard') ? 'none' : 'flex'; }
+function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard' || id === 's-reveal') ? 'none' : 'flex'; }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+// 非同期前提：同時に開かなくても、開いた本人が「タメ→めくる」のドラマを味わう
+function revealResult(hPicks, gPicks) {
+  show('s-reveal');
+  vib(20);
+  setTimeout(() => { renderResult(hPicks, gPicks); show('s-result'); }, 1100);
+}
 
 function burst() {
   const box=document.getElementById('particles'); box.innerHTML='';
@@ -449,8 +479,7 @@ window.addEventListener('load', () => {
     SPOTS = getSessionSpots(sessionSeed);
   }
   if (s && h && g) {
-    renderResult(decPicks(h), decPicks(g));
-    show('s-result');
+    revealResult(decPicks(h), decPicks(g));
   } else if (s && h) {
     hostPicksEncoded = h;
     show('s-guest-landing');
@@ -533,8 +562,7 @@ function renderFromSession(seed, val) {
   if (db) db.ref(`sessions/${seed}`).off();
   // URLはクリーンに再エンコードして残す
   history.replaceState(null, '', `${location.pathname}?s=${seed}&h=${encPicks(hp)}&g=${encPicks(gp)}`);
-  renderResult(hp, gp);
-  show('s-result');
+  revealResult(hp, gp);
   return true;
 }
 
@@ -547,8 +575,7 @@ function doneSelect() {
     // ゲストは自分のgだけ書く（hはホストが書く唯一の正。上書きしてはいけない）
     if (db) db.ref(`sessions/${sessionSeed}`).update({ g: mine });
     history.replaceState(null, '', `${location.pathname}?s=${sessionSeed}&h=${encPicks(hostPicks)}&g=${mine}`);
-    renderResult(hostPicks, myPicks);
-    show('s-result');
+    revealResult(hostPicks, myPicks);
   } else {
     myRole = 'h';
     waitUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${mine}`;
@@ -565,7 +592,7 @@ function doneSelect() {
 
 function copyWaitUrl() {
   // 文章は付けない。コピペで文字とURLが混ざってリンクが死ぬのを防ぐ＝URLだけ
-  navigator.clipboard.writeText(waitUrl).then(() => alert('コピーしました'));
+  navigator.clipboard.writeText(waitUrl).then(() => showToast('リンクをコピーしました'));
 }
 function shareWaitUrl() {
   if (navigator.share) navigator.share({ url: waitUrl });
@@ -761,11 +788,6 @@ function applyActivity(name) {
   updateMapLink();
 }
 
-function doShare(spot, isMatch) {
-  const msg = isMatch ? `ふたりとも「${spot}」一致した。 #週末マッチ` : `バラバラだった。 #週末マッチ`;
-  if (navigator.share) navigator.share({ text: msg, url: location.href });
-  else navigator.clipboard.writeText(msg + '\n' + location.href).then(() => alert('コピーしました'));
-}
 
 function openHelp() { document.getElementById('help-overlay').classList.add('open'); }
 function closeHelp() { document.getElementById('help-overlay').classList.remove('open'); }
