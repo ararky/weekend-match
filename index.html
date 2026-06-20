@@ -563,13 +563,12 @@ function doneSelect() {
   }
 }
 
-const INVITE_TEXT = '週末、どっか行こう。\n行きたいとこ3つ選んで👇';
 function copyWaitUrl() {
-  navigator.clipboard.writeText(`${INVITE_TEXT}\n${waitUrl}`).then(() => alert('コピーしました'));
+  // 文章は付けない。コピペで文字とURLが混ざってリンクが死ぬのを防ぐ＝URLだけ
+  navigator.clipboard.writeText(waitUrl).then(() => alert('コピーしました'));
 }
 function shareWaitUrl() {
-  // textとurlを分けると一部端末でtextがURL末尾に連結されhパラメータを壊すため、URLを末尾にまとめる
-  if (navigator.share) navigator.share({ text: `${INVITE_TEXT}\n${waitUrl}` });
+  if (navigator.share) navigator.share({ url: waitUrl });
   else copyWaitUrl();
 }
 
