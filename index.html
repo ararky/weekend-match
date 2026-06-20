@@ -384,7 +384,8 @@ function renderResult(hPicks, gPicks) {
   const gWild = gPicks.includes(WILDCARD);
   let matches;
   if (hWild && gWild) {
-    matches = [Math.floor(Math.random() * SPOTS.length)];
+    const spotRng = seededRng((sessionSeed || 1) + 77);
+    matches = [Math.floor(spotRng() * SPOTS.length)];
   } else if (hWild) {
     matches = gPicks.filter(i => i !== WILDCARD).slice(0, 1);
   } else if (gWild) {
@@ -398,7 +399,8 @@ function renderResult(hPicks, gPicks) {
   if (matches.length > 0) {
     playMatch(); vib([50,30,50,30,200]); burst();
     const matchName = spotName(matches[0]);
-    const activity = ACTIVITIES[Math.floor(Math.random() * ACTIVITIES.length)];
+    const actRng = seededRng((sessionSeed || 1) + 99);
+    const activity = ACTIVITIES[Math.floor(actRng() * ACTIVITIES.length)];
     el.innerHTML = `
       <div class="res-top pop-in">
         <span class="res-tag match">MATCH</span>
