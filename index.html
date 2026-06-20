@@ -139,6 +139,14 @@
       font-family: inherit; transition: transform 0.15s;
     }
     #help-btn:hover { transform: scale(1.15); }
+    #home-btn {
+      position: fixed; top: 1rem; right: 1rem; z-index: 200;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.7); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+      padding: 0.4rem 0.85rem; border-radius: 2rem; cursor: pointer; font-family: inherit;
+      display: none; transition: transform 0.15s, background 0.15s;
+    }
+    #home-btn:hover { transform: scale(1.05); background: rgba(255,255,255,0.14); }
 
     /* ── HELP OVERLAY ── */
     #help-overlay {
@@ -213,6 +221,7 @@
 <div id="particles"></div>
 
 <button id="help-btn" onclick="openHelp()">?</button>
+<button id="home-btn" onclick="goHome()">最初から</button>
 
 <!-- HELP OVERLAY -->
 <div id="help-overlay">
@@ -428,7 +437,17 @@ function decPicks(s) {
   } catch(e){ return []; }
 }
 function qp() { return new URLSearchParams(location.search); }
-function show(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); document.getElementById(id).classList.add('on'); document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard' || id === 's-reveal') ? 'none' : 'flex'; }
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  document.getElementById('help-btn').style.display = (id === 's-result' || id === 's-mycard' || id === 's-reveal') ? 'none' : 'flex';
+  // TOPと一時画面以外では「最初から」を常時出す（どこからでもTOPへ戻れる）
+  document.getElementById('home-btn').style.display = (id === 's-title' || id === 's-reveal' || id === 's-mycard') ? 'none' : 'block';
+}
+function goHome() {
+  if (db && sessionSeed) db.ref(`sessions/${sessionSeed}`).off();
+  reset();
+}
 
 let toastTimer;
 function showToast(msg) {
