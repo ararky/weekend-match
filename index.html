@@ -111,11 +111,143 @@
     @keyframes pop-in { 0% { transform: scale(0.5) translateY(16px); opacity: 0; } 65% { transform: scale(1.1) translateY(-4px); } 100% { transform: scale(1) translateY(0); opacity: 1; } }
     .pop-in { animation: pop-in 0.5s cubic-bezier(.34,1.56,.64,1) forwards; }
     .pop-in-d { animation: pop-in 0.5s 0.1s cubic-bezier(.34,1.56,.64,1) both; }
+
+    /* ── HELP BUTTON ── */
+    #help-btn {
+      position: fixed; top: 1rem; left: 1rem; z-index: 200;
+      width: 2rem; height: 2rem; border-radius: 50%;
+      background: linear-gradient(135deg, #FF006E, #8338EC);
+      border: none; color: #fff; font-size: 0.85rem; font-weight: 900;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-family: inherit; transition: transform 0.15s;
+    }
+    #help-btn:hover { transform: scale(1.15); }
+
+    /* ── HELP OVERLAY ── */
+    #help-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: #09090b;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      padding: 0;
+    }
+    #help-overlay.open { display: flex; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .help-close {
+      position: sticky; top: 0; z-index: 10;
+      display: flex; justify-content: flex-end;
+      padding: 1rem 1.2rem 0;
+      background: #09090b;
+    }
+    .help-close button {
+      background: rgba(255,255,255,0.08); border: none; color: rgba(255,255,255,0.5);
+      font-size: 1.2rem; cursor: pointer; width: 2rem; height: 2rem;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+    }
+
+    .help-body { padding: 1.5rem 1.5rem 4rem; max-width: 480px; margin: 0 auto; width: 100%; }
+
+    .help-hero { margin-bottom: 2.5rem; }
+    .help-hero-tag {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em;
+      background: linear-gradient(90deg, #FF006E, #8338EC);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      margin-bottom: 0.6rem;
+    }
+    .help-hero-title { font-size: clamp(2rem, 9vw, 3rem); font-weight: 900; line-height: 1.05; letter-spacing: -0.03em; }
+    .help-hero-sub { font-size: 0.85rem; color: rgba(255,255,255,0.35); margin-top: 0.8rem; line-height: 1.7; }
+
+    .help-card {
+      border-radius: 1rem; padding: 1.4rem 1.4rem;
+      margin-bottom: 0.8rem;
+      position: relative; overflow: hidden;
+    }
+    .help-card-num {
+      font-size: 3rem; font-weight: 900; opacity: 0.12;
+      position: absolute; right: 1rem; top: 0.5rem; line-height: 1;
+    }
+    .help-card-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 0.18em; margin-bottom: 0.4rem; }
+    .help-card-title { font-size: 1.2rem; font-weight: 900; margin-bottom: 0.4rem; }
+    .help-card-body { font-size: 0.82rem; line-height: 1.7; opacity: 0.75; }
+
+    .card-pink { background: linear-gradient(135deg, #FF006E22, #FF006E11); border: 1px solid #FF006E44; }
+    .card-pink .help-card-label { color: #FF006E; }
+
+    .card-purple { background: linear-gradient(135deg, #8338EC22, #8338EC11); border: 1px solid #8338EC44; }
+    .card-purple .help-card-label { color: #a855f7; }
+
+    .card-cyan { background: linear-gradient(135deg, #06D6A022, #06D6A011); border: 1px solid #06D6A044; }
+    .card-cyan .help-card-label { color: #06D6A0; }
+
+    .card-yellow { background: linear-gradient(135deg, #FFD60A22, #FFD60A11); border: 1px solid #FFD60A44; }
+    .card-yellow .help-card-label { color: #FFD60A; }
+
+    .card-blue { background: linear-gradient(135deg, #00B4D822, #00B4D811); border: 1px solid #00B4D844; }
+    .card-blue .help-card-label { color: #00B4D8; }
+
+    .help-footer { margin-top: 2rem; text-align: center; font-size: 0.7rem; color: rgba(255,255,255,0.2); line-height: 1.8; }
   </style>
 </head>
 <body>
 
 <div id="particles"></div>
+
+<button id="help-btn" onclick="openHelp()">?</button>
+
+<!-- HELP OVERLAY -->
+<div id="help-overlay">
+  <div class="help-close"><button onclick="closeHelp()">✕</button></div>
+  <div class="help-body">
+    <div class="help-hero">
+      <p class="help-hero-tag">WEEKEND MATCH</p>
+      <p class="help-hero-title">週末、<br>どっか行こう。</p>
+      <p class="help-hero-sub">ふたりで3つずつ選ぶ。重なったとこに行く。</p>
+    </div>
+
+    <div class="help-card card-pink">
+      <span class="help-card-num">1</span>
+      <p class="help-card-label">HOW TO PLAY</p>
+      <p class="help-card-title">3つ選んで、重なったら行く。</p>
+      <p class="help-card-body">200以上のスポットから毎回ランダムに20個が出てくる。行きたい場所を3つ選ぶ。相手も選ぶ。重なってたら、そこへ行く。</p>
+    </div>
+
+    <div class="help-card card-purple">
+      <span class="help-card-num">2</span>
+      <p class="help-card-label">なんでもいい</p>
+      <p class="help-card-title">ほんとにどこでもいい人へ。</p>
+      <p class="help-card-body">「なんでもいい」を押すと1タップで完了。相手の選んだ場所に自動で決まる。どこでもいいならそれでOK。</p>
+    </div>
+
+    <div class="help-card card-cyan">
+      <span class="help-card-num">3</span>
+      <p class="help-card-label">やること</p>
+      <p class="help-card-title">行き先と一緒に、やることも出てくる。</p>
+      <p class="help-card-body">銭湯で整う、路地裏を探検、ミシュランで背伸び……。タップするたびに変わるので、気に入ったやつで。</p>
+    </div>
+
+    <div class="help-card card-yellow">
+      <span class="help-card-num">4</span>
+      <p class="help-card-label">再提案</p>
+      <p class="help-card-title">ピンとこなければ入れ替えて。</p>
+      <p class="help-card-body">20スポットが微妙だったら「再提案」で全部リセット。何度でも。</p>
+    </div>
+
+    <div class="help-card card-blue">
+      <span class="help-card-num">5</span>
+      <p class="help-card-label">SHARE</p>
+      <p class="help-card-title">QRを見せるか、リンクを送る。</p>
+      <p class="help-card-body">先に選んだ人がQRを出す。相手がスキャンして選ぶ。MATCHした瞬間、ふたりの画面に同時に結果が出る。</p>
+    </div>
+
+    <div class="help-footer">
+      週末マッチ<br>
+      ararky.github.io/weekend-match
+    </div>
+  </div>
+</div>
 
 <!-- TITLE -->
 <div class="screen on" id="s-title">
@@ -551,6 +683,9 @@ function doShare(spot, isMatch) {
   if (navigator.share) navigator.share({ text: msg, url: location.href });
   else navigator.clipboard.writeText(msg + '\n' + location.href).then(() => alert('コピーしました'));
 }
+
+function openHelp() { document.getElementById('help-overlay').classList.add('open'); }
+function closeHelp() { document.getElementById('help-overlay').classList.remove('open'); }
 
 function reset() {
   history.replaceState(null, '', location.pathname);
