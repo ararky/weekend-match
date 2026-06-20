@@ -157,6 +157,8 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
 const ALL_SPOTS = [
   '渋谷','新宿','浅草','秋葉原','上野','下北沢','中目黒','表参道','六本木','恵比寿',
@@ -183,6 +185,10 @@ const ALL_SPOTS = [
   '多摩センター','稲城','日野','聖蹟桜ヶ丘','府中本町','分倍河原',
   '中目黒','祐天寺','都立大学','洗足','旗の台','荏原中延','中延','戸越',
 ];
+
+const DB_URL = 'https://tokyo-weekend-match-default-rtdb.asia-southeast1.firebasedatabase.app';
+let db = null;
+try { firebase.initializeApp({databaseURL: DB_URL}); db = firebase.database(); } catch(e) {}
 
 const SESSION_SIZE = 20;
 const WILDCARD = 99;
@@ -356,6 +362,7 @@ function doneSelect() {
     const gEnc = encPicks(myPicks);
     const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hostPicksEncoded}&g=${gEnc}`;
     history.replaceState(null, '', resultUrl);
+    if (db) db.ref(`sessions/${sessionSeed}`).set({g: gEnc});
     renderResult(decPicks(hostPicksEncoded), myPicks);
     show('s-result');
   } else {
@@ -365,6 +372,18 @@ function doneSelect() {
     document.getElementById('qr-box').innerHTML = '';
     new QRCode(document.getElementById('qr-box'), {text: waitUrl, width: 200, height: 200, colorDark: '#000', colorLight: '#fff'});
     show('s-wait');
+    if (db) {
+      db.ref(`sessions/${sessionSeed}`).on('value', snap => {
+        const val = snap.val();
+        if (!val || !val.g) return;
+        db.ref(`sessions/${sessionSeed}`).off();
+        const hEnc = encPicks(myPicks);
+        const resultUrl = `${location.origin}${location.pathname}?s=${sessionSeed}&h=${hEnc}&g=${val.g}`;
+        history.replaceState(null, '', resultUrl);
+        renderResult(myPicks, decPicks(val.g));
+        show('s-result');
+      });
+    }
   }
 }
 
@@ -428,10 +447,13 @@ function renderResult(hPicks, gPicks) {
       </div>
       <div class="res-bottom pop-in" style="animation-delay:0.2s">
         <span class="res-app">週末マッチ</span>
-        <div style="display:flex;gap:0.6rem">
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;justify-content:flex-end">
+          ${isGuest ? `<button class="btn red" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="showResultQr()">相手に見せる</button>` : ''}
           <a class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem;text-decoration:none" href="https://www.google.com/maps/search/${encodeURIComponent(matchName)}" target="_blank">地図で開く</a>
-          <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="doShare('${matchName}',true)">シェア</button>
           <button class="btn dim" style="padding:0.5rem 1.2rem;font-size:0.8rem" onclick="reset()">もう一回</button>
+        </div>
+        <div id="result-qr" style="display:none;margin-top:1rem;text-align:center">
+          <div id="result-qr-box" style="background:#fff;padding:12px;display:inline-block"></div>
         </div>
       </div>
     `;
@@ -466,6 +488,15 @@ function renderResult(hPicks, gPicks) {
       </div>
     `;
   }
+}
+
+function showResultQr() {
+  const box = document.getElementById('result-qr');
+  const qrBox = document.getElementById('result-qr-box');
+  if (!box || !qrBox) return;
+  box.style.display = 'block';
+  qrBox.innerHTML = '';
+  new QRCode(qrBox, {text: location.href, width: 160, height: 160, colorDark: '#000', colorLight: '#fff'});
 }
 
 function rerollSpot() {
