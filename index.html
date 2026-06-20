@@ -618,8 +618,9 @@ function renderResult(hPicks, gPicks) {
     `;
   } else {
     playMiss(); vib(40);
-    // 重ならなかった → 二人が出した6つから1つ提案（シード固定で両者同じ）
-    const pool = [...new Set([...hPicks, ...gPicks])].filter(i => i !== WILDCARD);
+    // 重ならなかった → 二人が出した6つから1つ提案
+    // ※ソートで順序非依存にし、ホスト/ゲストどちらの端末でも必ず同じ提案にする
+    const pool = [...new Set([...hPicks, ...gPicks])].filter(i => i !== WILDCARD).sort((a, b) => a - b);
     const pickRng = seededRng((sessionSeed || 1) + 55);
     const proposed = pool.length ? pool[Math.floor(pickRng() * pool.length)]
                                  : Math.floor(pickRng() * SPOTS.length);
